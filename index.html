@@ -234,8 +234,7 @@
         // 브이월드 API 호출 함수
         async function getVworldPolygon(lng, lat, displayAddr) {
             const targetUrl = `https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LP_PA_CBND_BUBUN&key=${VWORLD_KEY}&domain=${VWORLD_DOMAIN}&geomFilter=point(${lng} ${lat})&crs=EPSG:4326`;
-            const url = `http://localhost:3000/vworld?service=data&request=GetFeature&data=LP_PA_CBND_BUBUN&key=${VWORLD_KEY}&domain=${VWORLD_DOMAIN}&geomFilter=point(${lng} ${lat})&crs=EPSG:4326`;
-
+            const url = `/vworld?service=data&request=GetFeature&data=LP_PA_CBND_BUBUN&key=${VWORLD_KEY}&domain=${VWORLD_DOMAIN}&geomFilter=point(${lng} ${lat})&crs=EPSG:4326`;
             try {
                 const response = await fetch(url);
                 const data = await response.json();
