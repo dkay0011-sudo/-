@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>토지 면적 계산기 & 검색 기록</title>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background-color: #f4f6f8; }
+        
+        /* --- [1] 처음 API 키 입력 화면 스타일 --- */
+        #setupPanel { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #fff; }
+        .setup-box { padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; background-color: #fff; width: 400px; }
+        .setup-box h2 { margin-top: 0; color: #333; }
+        .setup-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .setup-box button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        .setup-box button:hover { background-color: #0056b3; }
+        .help-text { font-size: 12px; color: #888; text-align: left; margin-bottom: 10px; line-height: 1.5; }
+
+        /* --- [2] 메인 앱 화면 스타일 --- */
+        #mainApp { display: none; height: 100%; flex-direction: column; }
+        #header { padding: 15px 20px; background-color: #fff; border-bottom: 1px solid #ddd; display: flex; gap: 10px; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10; }
+        #header input { padding: 10px; width: 350px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+        #header button { padding: 10px 20px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        #header button:hover { background-color: #0056b3; }
+        
+        #container { display: flex; flex: 1; overflow: hidden; }
+        #mapWrapper { position: relative; width: 70%; height: 100%; }
+        #map { width: 100%; height: 100%; }
+        
+        #sidebar { width: 30%; height: 100%; padding: 20px; background-color: #fff; box-sizing: border-box; border-left: 1px solid #ddd; overflow-y: auto; }
+        
+        /* 토지 정보 박스 */
+        .info-box { background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee; }
+        .info-box h3 { margin-top: 0; color: #333; font-size: 18px; border-bottom: 2px solid #007bff; padding-bottom: 10px; display: inline-block; }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 16px; }
+        .data-row span:last-child { font-weight: bold; color: #007bff; }
+
+        /* 검색 기록 테이블 */
+        .history-box h3 { margin-top: 0; color: #333; font-size: 16px; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; }
+        th, td { border: 1px solid #ddd; padding: 10px 5px; }
+        th { background-color: #f1f3f5; color: #444; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+
+        /* 커스텀 지적도 버튼 */
+        #btnCadastral { background-color: #fff; border: 1px solid #919191; border-radius: 3px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); padding: 8px 12px; font-size: 13px; font-family: 'Malgun Gothic', sans-serif; color: #333; cursor: pointer; font-weight: bold; transition: all 0.2s; flex: 1; }
+        #btnCadastral:hover { background-color: #f5f5f5; }
+        #btnCadastral.active { background-color: #2b8ee6; color: #fff; border-color: #2b8ee6; }
+        #btnCadastral.active:hover { background-color: #2274bd; }
+
+        /* 하일라이트 초기화 버튼 */
+        #btnClearPolygons { background-color: #9c27b0; color: white; border: none; border-radius: 3px; padding: 8px 12px; font-size: 13px; font-family: 'Malgun Gothic', sans-serif; cursor: pointer; font-weight: bold; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.1); flex: 1; }
+        #btnClearPolygons:hover { background-color: #7b1fa2; }
+
+        /* 히스토리 삭제 버튼 */
+        .delete-btn { background-color: #ff6b6b; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 11px; cursor: pointer; font-weight: bold; transition: background-color 0.2s; }
+        .delete-btn:hover { background-color: #ff5252; }
+
+        /* 히스토리 주소 클릭 가능 스타일 */
+        .history-address { cursor: pointer; color: #007bff; text-decoration: none; transition: text-decoration 0.2s; }
+        .history-address:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div id="setupPanel">
+        <div class="setup-box">
+            <h2>토지 면적 계산기 🗺️</h2>
+            <p class="help-text">최초 1회만 입력하시면 내 브라우저에 안전하게 자동 저장됩니다.</p>
+            <input type="text" id="kakaoKeyInput" placeholder="카카오 JavaScript 키 입력">
+            <input type="text" id="vworldKeyInput" placeholder="브이월드 인증키 입력">
+            <button onclick="startApp()">앱 시작하기</button>
+        </div>
+    </div>
+
+    <div id="mainApp">
+        <div id="header">
+            <input type="text" id="addressInput" placeholder="지번 주소를 입력하세요 (예: 삼평동 681)" onkeypress="if(event.keyCode==13) searchAddress();">
+            <button onclick="searchAddress()">검색</button>
+        </div>
+
+        <div id="container">
+            <div id="mapWrapper">
+                <div id="map"></div>
+            </div>
+            
+            <div id="sidebar">
+                <div class="info-box">
+                    <h3>현재 토지 정보</h3>
+                    <div class="data-row"><span>검색 주소:</span><span id="displayAddress">-</span></div>
+                    <div class="data-row"><span>면적 (m²):</span><span id="displayAreaM2">-</span></div>
+                    <div class="data-row"><span>면적 (평):</span><span id="displayAreaPyeong">-</span></div>
+                </div>
+
+                <div id="controlButtons" style="display: flex; gap: 5px; margin-bottom: 20px;">
+                    <button id="btnCadastral" onclick="toggleCadastral()">지적도</button>
+                    <button id="btnClearPolygons" onclick="clearAllPolygons()">하일라이트 초기화</button>
+                </div>
+                
+                <div class="history-box">
+                    <h3>검색 기록</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 10%;">번호</th>
+                                <th style="width: 40%;">주소</th>
+                                <th style="width: 18%;">m²</th>
+                                <th style="width: 18%;">평</th>
+                                <th style="width: 14%;">삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTbody">
+                        </tbody>
+                        <tfoot>
+                            <tr style="background-color: #f0f0f0; font-weight: bold;">
+                                <td colspan="2" style="text-align: right; padding-right: 10px;">합계</td>
+                                <td id="totalM2">0 m²</td>
+                                <td id="totalPyeong">0.00 평</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <p style="font-size: 11px; color: #888; margin-top: 15px;">* 면적은 좌표 기반 근사치입니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수 모음
+        let VWORLD_KEY = '';
+        const VWORLD_DOMAIN = 'http://127.0.0.1:5500';
+        let map, geocoder, currentMarker;
+        let isCadastralOn = false;
+        let searchCount = 0; // 히스토리 번호 카운트
+        let isFromHistory = false; // 히스토리 클릭으로 검색 중인지 판단
+        let polygons = []; // 여러 폴리곤을 저장할 배열
+
+        // 앱이 열릴 때 저장된 키가 있으면 자동으로 불러오기
+        window.onload = function() {
+            const savedKakao = localStorage.getItem('kakaoApiKey');
+            const savedVworld = localStorage.getItem('vworldApiKey');
+            if(savedKakao) document.getElementById('kakaoKeyInput').value = savedKakao;
+            if(savedVworld) document.getElementById('vworldKeyInput').value = savedVworld;
+
+            // 저장된 검색 기록 불러오기
+            loadHistoryFromStorage();
+        };
+
+        // '앱 시작하기' 버튼 클릭 시 실행
+        function startApp() {
+            const kakaoKey = document.getElementById('kakaoKeyInput').value.trim();
+            const vworldKey = document.getElementById('vworldKeyInput').value.trim();
+
+            if (!kakaoKey || !vworldKey) {
+                alert('카카오 키와 브이월드 키를 모두 입력해주세요!');
+                return;
+            }
+
+            // 내 브라우저에 키 저장
+            localStorage.setItem('kakaoApiKey', kakaoKey);
+            localStorage.setItem('vworldApiKey', vworldKey);
+            VWORLD_KEY = vworldKey;
+
+            // 카카오 지도 스크립트를 동적으로(코드 실행 중에) 불러오는 마법!
+            const script = document.createElement('script');
+            script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services&autoload=false`;
+            
+            script.onload = () => {
+                kakao.maps.load(() => {
+                    // 지도 로드가 완료되면 입력 화면을 숨기고 메인 앱 화면을 보여줌
+                    document.getElementById('setupPanel').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'flex';
+                    initMap(); // 지도 생성
+                });
+            };
+            
+            script.onerror = () => {
+                alert('카카오 지도 스크립트를 불러오지 못했습니다. 카카오 API 키가 정확한지 확인해주세요.');
+            };
+
+            document.head.appendChild(script);
+        }
+
+        // 지도 생성 및 세팅 함수
+        function initMap() {
+            const mapContainer = document.getElementById('map');
+            const mapOption = { center: new kakao.maps.LatLng(37.566826, 126.978656), level: 3 };
+            map = new kakao.maps.Map(mapContainer, mapOption);
+            
+            const mapTypeControl = new kakao.maps.MapTypeControl();
+            map.addControl(mapTypeControl, kakao.maps.ControlPosition.TOPRIGHT);
+            const zoomControl = new kakao.maps.ZoomControl();
+            map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
+
+            geocoder = new kakao.maps.services.Geocoder(); 
+        }
+
+        // 지적도 켜기/끄기 함수
+        function toggleCadastral() {
+            const btn = document.getElementById('btnCadastral');
+            if (isCadastralOn) {
+                map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
+                btn.classList.remove('active');
+                isCadastralOn = false;
+            } else {
+                map.addOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
+                btn.classList.add('active');
+                isCadastralOn = true;
+            }
+        }
+
+        // 주소 검색 함수
+        function searchAddress() {
+            const address = document.getElementById('addressInput').value;
+            if (!address) return alert('주소를 입력해주세요!');
+
+            geocoder.addressSearch(address, function(result, status) {
+                if (status === kakao.maps.services.Status.OK) {
+                    const coords = new kakao.maps.LatLng(result[0].y, result[0].x);
+                    const jibunAddr = result[0].address ? result[0].address.address_name : address;
+
+                    map.setCenter(coords);
+                    if (currentMarker) currentMarker.setMap(null);
+                    currentMarker = new kakao.maps.Marker({ map: map, position: coords });
+
+                    getVworldPolygon(result[0].x, result[0].y, jibunAddr);
+                } else {
+                    alert('주소를 찾을 수 없습니다.');
+                }
+            });
+        }
+
+        // 브이월드 API 호출 함수
+        async function getVworldPolygon(lng, lat, displayAddr) {
+            const targetUrl = `https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LP_PA_CBND_BUBUN&key=${VWORLD_KEY}&domain=${VWORLD_DOMAIN}&geomFilter=point(${lng} ${lat})&crs=EPSG:4326`;
+            const url = `http://localhost:3000/vworld?service=data&request=GetFeature&data=LP_PA_CBND_BUBUN&key=${VWORLD_KEY}&domain=${VWORLD_DOMAIN}&geomFilter=point(${lng} ${lat})&crs=EPSG:4326`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.response && data.response.status === "OK" && data.response.result.featureCollection.features.length > 0) {
+                    const feature = data.response.result.featureCollection.features[0];
+                    const coordinates = feature.geometry.coordinates[0][0]; 
+                    drawPolygonAndCalculate(coordinates, displayAddr);
+                } else {
+                    resetInfoBox(displayAddr);
+                    alert('해당 위치의 지적도 데이터를 찾을 수 없습니다.');
+                }
+            } catch (error) {
+                console.error("Vworld API 에러:", error);
+                alert('데이터를 불러오는 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 폴리곤 그리기, 면적 계산 및 히스토리 추가 함수
+        function drawPolygonAndCalculate(coordinates, addressName) {
+            const path = coordinates.map(coord => new kakao.maps.LatLng(coord[1], coord[0]));
+            const polygon = new kakao.maps.Polygon({
+                path: path, strokeWeight: 3, strokeColor: '#FF0000',
+                strokeOpacity: 0.8, fillColor: '#FF0000', fillOpacity: 0.3
+            });
+            polygon.setMap(map);
+
+            // 새로운 폴리곤을 배열에 추가
+            polygons.push(polygon);
+
+            const areaM2 = polygon.getArea();
+            const areaPyeong = areaM2 * 0.3025;
+
+            const strM2 = Math.round(areaM2).toLocaleString() + ' m²';
+            const strPyeong = areaPyeong.toFixed(2) + ' 평';
+
+            // 상단 정보 박스 업데이트
+            document.getElementById('displayAddress').innerText = addressName;
+            document.getElementById('displayAreaM2').innerText = strM2;
+            document.getElementById('displayAreaPyeong').innerText = strPyeong;
+
+            // 히스토리 테이블에 새 줄(row) 추가하기 (원본 숫자값 전달)
+            addHistoryRow(addressName, Math.round(areaM2), areaPyeong);
+        }
+
+        // localStorage에서 검색 기록 불러오기
+        function loadHistoryFromStorage() {
+            const storedHistory = localStorage.getItem('searchHistory');
+            if (!storedHistory) {
+                updateHistoryTotal();
+                return;
+            }
+
+            const history = JSON.parse(storedHistory);
+            const tbody = document.getElementById('historyTbody');
+            tbody.innerHTML = ''; // 기존 데이터 초기화
+
+            history.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                const formattedM2 = parseInt(item.m2).toLocaleString() + ' m²';
+                const formattedPyeong = parseFloat(item.pyeong).toFixed(2) + ' 평';
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td><span class="history-address" onclick="clickHistory('${item.address.replace(/'/g, "\\'")}')">${item.address}</span></td>
+                    <td>${formattedM2}</td>
+                    <td>${formattedPyeong}</td>
+                    <td><button class="delete-btn" onclick="deleteHistoryItem(${index})">삭제</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            searchCount = history.length; // 검색 카운트 복원
+            updateHistoryTotal(); // 합계 업데이트
+        }
+
+        // 히스토리 테이블 생성 및 localStorage 저장 함수
+        function addHistoryRow(address, m2, pyeong) {
+            // 히스토리 클릭으로 검색한 경우 기록에 추가하지 않음
+            if (isFromHistory) {
+                isFromHistory = false;
+                return;
+            }
+
+            // localStorage에서 기존 히스토리 불러오기
+            let history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+
+            // 같은 주소가 이미 존재하는지 체크
+            const isDuplicate = history.some(item => item.address === address);
+            if (isDuplicate) {
+                return; // 중복이면 추가하지 않음
+            }
+
+            searchCount++; // 검색 번호 1 증가
+
+            // 히스토리 데이터 객체 생성 (원본 숫자 저장)
+            const historyItem = {
+                address: address,
+                m2: m2,
+                pyeong: pyeong,
+                timestamp: new Date().toLocaleString('ko-KR')
+            };
+
+            // 새 데이터를 맨 앞에 추가
+            history.unshift(historyItem);
+
+            // 최근 50개만 유지 (저장 공간 절약)
+            if (history.length > 50) {
+                history = history.slice(0, 50);
+            }
+
+            // localStorage에 저장
+            localStorage.setItem('searchHistory', JSON.stringify(history));
+
+            // 테이블에 표시 (UI 업데이트)
+            const tbody = document.getElementById('historyTbody');
+            const tr = document.createElement('tr');
+
+            const formattedM2 = m2.toLocaleString() + ' m²';
+            const formattedPyeong = pyeong.toFixed(2) + ' 평';
+
+            tr.innerHTML = `
+                <td>${searchCount}</td>
+                <td><span class="history-address" onclick="clickHistory('${address.replace(/'/g, "\\'")}')">${address}</span></td>
+                <td>${formattedM2}</td>
+                <td>${formattedPyeong}</td>
+                <td><button class="delete-btn" onclick="deleteHistoryItem(0)">삭제</button></td>
+            `;
+
+            // 맨 위에 최신 데이터가 쌓이도록 prepend 사용
+            tbody.prepend(tr);
+
+            // 합계 업데이트
+            updateHistoryTotal();
+        }
+
+        // 특정 히스토리 항목 삭제 함수
+        function deleteHistoryItem(index) {
+            let history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+
+            // 범위 체크
+            if (index < 0 || index >= history.length) {
+                alert('삭제할 항목이 없습니다.');
+                return;
+            }
+
+            // 해당 인덱스 항목 제거
+            history.splice(index, 1);
+
+            // localStorage에 업데이트
+            localStorage.setItem('searchHistory', JSON.stringify(history));
+
+            // 새로 번호를 매겨서 테이블 다시 그리기
+            searchCount = 0;
+            loadHistoryFromStorage();
+            updateHistoryTotal(); // 합계 업데이트
+        }
+
+        // 검색 기록 합계 계산 및 업데이트 함수
+        function updateHistoryTotal() {
+            const storedHistory = localStorage.getItem('searchHistory');
+            let totalM2 = 0;
+            let totalPyeong = 0;
+
+            if (storedHistory) {
+                const history = JSON.parse(storedHistory);
+                history.forEach(item => {
+                    totalM2 += parseInt(item.m2) || 0;
+                    totalPyeong += parseFloat(item.pyeong) || 0;
+                });
+            }
+
+            // 합계 표시 (천단위 쉼표 포함)
+            document.getElementById('totalM2').textContent = totalM2.toLocaleString() + ' m²';
+            document.getElementById('totalPyeong').textContent = totalPyeong.toFixed(2) + ' 평';
+        }
+
+        // 히스토리 주소 클릭 시 검색 실행
+        function clickHistory(address) {
+            isFromHistory = true; // 히스토리에서 클릭했음을 표시
+            document.getElementById('addressInput').value = address;
+            searchAddress();
+        }
+
+        // 정보 초기화
+        function resetInfoBox(addressName) {
+            document.getElementById('displayAddress').innerText = addressName;
+            document.getElementById('displayAreaM2').innerText = '-';
+            document.getElementById('displayAreaPyeong').innerText = '-';
+        }
+
+        // 모든 폴리곤 지우기 함수
+        function clearAllPolygons() {
+            polygons.forEach(polygon => polygon.setMap(null));
+            polygons = [];
+        }
+    </script>
+</body>
+</html>
