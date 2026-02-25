@@ -19,6 +19,7 @@ app.get('/', (req, res) => {
 app.get('/vworld', async (req, res) => {
     try {
         const targetUrl = 'https://api.vworld.kr/req/data';
+        console.log('📡 VWorld 요청:', { url: targetUrl, params: req.query });
         
         const response = await axios.get(targetUrl, { 
             params: req.query,
@@ -32,10 +33,14 @@ app.get('/vworld', async (req, res) => {
                 'Accept': '*/*'
             }
         });
+        console.log('✅ VWorld 응답 성공:', response.status);
         res.json(response.data);
     } catch (error) {
-        console.error("Vworld 상세 에러:", error.response ? error.response.data : error.message);
-        res.status(500).json({ error: '브이월드 연결 실패' });
+        console.error('❌ VWorld 에러 발생:');
+        console.error('   상태 코드:', error.response?.status);
+        console.error('   에러 메시지:', error.message);
+        console.error('   응답 데이터:', error.response?.data);
+        res.status(500).json({ error: '브이월드 연결 실패', details: error.message });
     }
 });
 
