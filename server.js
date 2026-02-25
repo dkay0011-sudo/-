@@ -20,10 +20,15 @@ app.get('/', (req, res) => {
 app.get('/vworld', async (req, res) => {
     try {
         const targetUrl = 'https://api.vworld.kr/req/data';
+        // 로그 추가: 어떤 주소로 요청을 보내는지 서버 터미널(Logs)에 찍힙니다.
+        console.log("브이월드 요청 파라미터:", req.query); 
+
         const response = await axios.get(targetUrl, { params: req.query });
         res.json(response.data);
     } catch (error) {
-        res.status(500).json({ error: '서버 에러가 발생했습니다.' });
+        // 로그 추가: 에러가 발생하면 구체적으로 어떤 에러인지 Logs에 찍힙니다.
+        console.error("Vworld API 에러 상세:", error.response ? error.response.data : error.message);
+        res.status(500).json({ error: '브이월드 통신 중 에러 발생' });
     }
 });
 
