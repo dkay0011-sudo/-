@@ -20,13 +20,20 @@ app.get('/', (req, res) => {
 app.get('/vworld', async (req, res) => {
     try {
         const targetUrl = 'https://api.vworld.kr/req/data';
-        // 로그 추가: 어떤 주소로 요청을 보내는지 서버 터미널(Logs)에 찍힙니다.
-        console.log("브이월드 요청 파라미터:", req.query); 
-
-        const response = await axios.get(targetUrl, { params: req.query });
+        
+        // 브이월드에게 보낼 정보에 '가면'을 씌워줍니다.
+        const response = await axios.get(targetUrl, { 
+            params: req.query,
+            headers: {
+                // 1. "나는 로봇이 아니라 크롬 브라우저야"라고 속입니다.
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                // 2. "나는 등록된 도메인(dkay-map)에서 온 요청이야"라고 확실히 알려줍니다.
+                'Referer': req.query.domain 
+            }
+        });
+        
         res.json(response.data);
     } catch (error) {
-        // 로그 추가: 에러가 발생하면 구체적으로 어떤 에러인지 Logs에 찍힙니다.
         console.error("Vworld API 에러 상세:", error.response ? error.response.data : error.message);
         res.status(500).json({ error: '브이월드 통신 중 에러 발생' });
     }
