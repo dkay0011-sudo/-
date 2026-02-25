@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const app = express();
-const PORT = 3000; // 서버가 열릴 포트 번호
+const PORT = process.env.PORT || 3000; // 서버가 열릴 포트 번호
 
 app.use(cors()); // 모든 도메인에서의 접속을 허용 (CORS 해결)
 
