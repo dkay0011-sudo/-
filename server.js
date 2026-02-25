@@ -14,8 +14,8 @@ app.get('/', (req, res) => {
 
 app.get('/vworld', async (req, res) => {
     try {
-        // [중요] https 대신 http를 사용하면 SSL 인증 오류(socket hang up)를 피할 수 있는 경우가 많습니다.
-        const targetUrl = 'http://api.vworld.kr/req/data';
+        // [중요] VWorld API는 HTTPS를 사용해야 합니다.
+        const targetUrl = 'https://api.vworld.kr/req/data';
         
         const response = await axios.get(targetUrl, { 
             params: req.query,
