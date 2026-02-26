@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.static(__dirname));
 
 // 브라우저에서 보이는 404 에러(favicon)를 방지하기 위한 가짜 응답
-app.get('/favicon.ico', (req, res) => res.status(204));
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
